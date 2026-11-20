@@ -22,12 +22,17 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Create Flutter project if missing
+      - name: Reset repo to avoid half-generated projects
         shell: bash
         run: |
-          if [ ! -f "pubspec.yaml" ]; then
-            flutter create --project-name gmclean --platforms=android --org com.gmclean.app .
-          fi
+          rm -rf android ios lib test web windows macos linux
+          rm -f pubspec.yaml pubspec.lock .metadata analysis_options.yaml
+
+      - name: Create Flutter project in /tmp (safe name)
+        shell: bash
+        run: |
+          flutter create --project-name gmclean --platforms=android --org com.gmclean.app /tmp/gmclean
+          rsync -a /tmp/gmclean/ ./
 
       - name: Write polished home (starter)
         shell: bash
@@ -173,5 +178,5 @@ jobs:
             echo "Nothing to commit."
             exit 0
           fi
-          git commit -m "Bootstrap Flutter app + build pipeline"
+          git commit -m "Bootstrap Flutter project (gmclean) + build"
           git push
