@@ -1,4 +1,4 @@
-name: Bootstrap Flutter + Build APK
+name: Bootstrap Gmclean (Icon+Splash+Animations) + Build APK
 
 on:
   workflow_dispatch:
@@ -22,6 +22,11 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Install ImageMagick (for placeholder icon/splash)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick rsync
+
       - name: Reset repo to avoid half-generated projects
         shell: bash
         run: |
@@ -34,11 +39,81 @@ jobs:
           flutter create --project-name gmclean --platforms=android --org com.gmclean.app /tmp/gmclean
           rsync -a /tmp/gmclean/ ./
 
-      - name: Write polished home (starter)
+      - name: Write pubspec with icon/splash + animations
+        shell: bash
+        run: |
+          cat > pubspec.yaml <<'EOF'
+          name: gmclean
+          description: Organizador e limpeza de e-mails do Gmail
+          version: 1.0.0+1
+
+          environment:
+            sdk: ">=3.3.0 <4.0.0"
+
+          dependencies:
+            flutter:
+              sdk: flutter
+            flutter_animate: ^4.5.0
+            intl: ^0.19.0
+
+          dev_dependencies:
+            flutter_test:
+              sdk: flutter
+            flutter_lints: ^5.0.0
+            flutter_launcher_icons: ^0.13.1
+            flutter_native_splash: ^2.4.2
+
+          flutter:
+            uses-material-design: true
+            assets:
+              - assets/icon/
+              - assets/splash/
+
+          flutter_launcher_icons:
+            android: true
+            image_path: assets/icon/icon.png
+            adaptive_icon_background: "#F6F8FB"
+            adaptive_icon_foreground: assets/icon/icon_fg.png
+
+          flutter_native_splash:
+            color: "#F6F8FB"
+            image: assets/splash/splash.png
+            android: true
+            android_12:
+              color: "#F6F8FB"
+              image: assets/splash/splash.png
+          EOF
+
+      - name: Generate placeholder icon + splash assets (clean)
+        shell: bash
+        run: |
+          mkdir -p assets/icon assets/splash
+
+          # Icon base
+          convert -size 1024x1024 xc:"#F6F8FB" \
+            -fill "#1E88E5" -draw "roundrectangle 140,140 884,884 180,180" \
+            -fill white -font DejaVu-Sans-Bold -pointsize 180 \
+            -gravity center -annotate +0-20 "Gm" \
+            assets/icon/icon.png
+
+          # Foreground for adaptive icon (simple "Gm" mark)
+          convert -size 1024x1024 xc:none \
+            -fill "#1E88E5" -font DejaVu-Sans-Bold -pointsize 220 \
+            -gravity center -annotate +0+0 "Gm" \
+            assets/icon/icon_fg.png
+
+          # Splash image
+          convert -size 1200x1200 xc:"#F6F8FB" \
+            -fill "#1E88E5" -font DejaVu-Sans-Bold -pointsize 120 \
+            -gravity center -annotate +0+0 "Gmclean" \
+            assets/splash/splash.png
+
+      - name: Write polished UI with micro-animations (starter)
         shell: bash
         run: |
           cat > lib/main.dart <<'EOF'
           import "package:flutter/material.dart";
+          import "package:flutter_animate/flutter_animate.dart";
 
           void main() => runApp(const GmcleanApp());
 
@@ -55,10 +130,12 @@ jobs:
                   useMaterial3: true,
                   colorScheme: ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light),
                   scaffoldBackgroundColor: const Color(0xFFF6F8FB),
+                  appBarTheme: const AppBarTheme(centerTitle: true),
                 ),
                 darkTheme: ThemeData(
                   useMaterial3: true,
                   colorScheme: ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark),
+                  appBarTheme: const AppBarTheme(centerTitle: true),
                 ),
                 home: const Home(),
               );
@@ -71,49 +148,62 @@ jobs:
             @override
             Widget build(BuildContext context) {
               final cs = Theme.of(context).colorScheme;
+
               return Scaffold(
-                appBar: AppBar(title: const Text("Gmclean"), centerTitle: true),
-                body: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: cs.primaryContainer,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.auto_delete_outlined, color: cs.onPrimaryContainer),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                "Limpeza rápida da caixa de entrada",
-                                style: TextStyle(
-                                  color: cs.onPrimaryContainer,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
+                appBar: AppBar(
+                  title: const Text("Gmclean"),
+                ),
+                body: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: cs.primaryContainer,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.auto_delete_outlined, color: cs.onPrimaryContainer),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  "Limpeza rápida da caixa de entrada",
+                                  style: TextStyle(
+                                    color: cs.onPrimaryContainer,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const _Card(icon: Icons.local_offer_outlined, title: "Promoções", sub: "Arquivar em massa"),
-                      const SizedBox(height: 10),
-                      const _Card(icon: Icons.newspaper_outlined, title: "Newsletters", sub: "Cancelar inscrições"),
-                      const SizedBox(height: 10),
-                      const _Card(icon: Icons.query_stats_outlined, title: "Resumo", sub: "Stats e top remetentes"),
-                      const Spacer(),
-                      FilledButton.icon(
-                        onPressed: null,
-                        icon: const Icon(Icons.link),
-                        label: const Text("Conectar Gmail (em seguida)"),
-                      ),
-                    ],
+                              )
+                            ],
+                          ),
+                        ).animate().fadeIn(duration: 250.ms).slideY(begin: .10),
+
+                        const SizedBox(height: 14),
+
+                        _Card(icon: Icons.local_offer_outlined, title: "Promoções", sub: "Arquivar em massa e reduzir ruído"),
+                        const SizedBox(height: 10),
+                        _Card(icon: Icons.newspaper_outlined, title: "Newsletters", sub: "Cancelar inscrições com 1 toque"),
+                        const SizedBox(height: 10),
+                        _Card(icon: Icons.query_stats_outlined, title: "Resumo", sub: "Stats e top remetentes"),
+
+                        const Spacer(),
+
+                        FilledButton.icon(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Próximo passo: conectar Gmail (OAuth) e ativar ações reais.")),
+                            );
+                          },
+                          icon: const Icon(Icons.link),
+                          label: const Text("Conectar Gmail"),
+                        ).animate().fadeIn(delay: 200.ms).slideY(begin: .10),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -152,15 +242,21 @@ jobs:
                     )
                   ],
                 ),
-              );
+              ).animate().fadeIn(duration: 220.ms).slideY(begin: .06);
             }
           }
           EOF
 
-      - name: Build APK (debug)
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Generate splash + launcher icons
         run: |
-          flutter pub get
-          flutter build apk --debug
+          dart run flutter_native_splash:create
+          dart run flutter_launcher_icons
+
+      - name: Build APK (debug)
+        run: flutter build apk --debug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -178,5 +274,5 @@ jobs:
             echo "Nothing to commit."
             exit 0
           fi
-          git commit -m "Bootstrap Flutter project (gmclean) + build"
+          git commit -m "Bootstrap: icon+splash+animations + build"
           git push
